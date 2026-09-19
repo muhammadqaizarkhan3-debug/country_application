@@ -13,8 +13,15 @@
     <p class="subtitle">Live weather + country data, combined from two APIs</p>
   </header>
 
+  <section class="quick-cities-panel">
+    <h2>Quick lookup</h2>
+    <div id="quickCityButtons" class="quick-city-buttons">
+      <!-- Buttons injected by script.js from the QUICK_CITIES list -->
+    </div>
+  </section>
+
   <section class="add-city-panel">
-    <h2>Add a city</h2>
+    <h2>Add a different city</h2>
     <form id="addCityForm" class="add-city-form">
       <input type="text" id="cityName" placeholder="City name (e.g. Lahore)" required />
       <input type="number" step="any" id="cityLat" placeholder="Latitude (e.g. 31.55)" required />

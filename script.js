@@ -38,14 +38,61 @@ let cities = [
   { name: "Berlin", alpha2: "DE", lat: 52.52, lon: 13.41 },
   { name: "Ottawa", alpha2: "CA", lat: 45.42, lon: -75.7 },
   { name: "Tokyo", alpha2: "JP", lat: 35.68, lon: 139.69 },
-  { name: "Lahore", alpha2: "PK", lat: 31.55, lon: 74.35 },
   { name: "Paris", alpha2: "FR", lat: 48.85, lon: 2.35 },
 ];
+
+// Required quick-select cities: one button each, click to fetch & show.
+const QUICK_CITIES = [
+  { name: "Faisalabad", alpha2: "PK", lat: 31.418, lon: 73.0791 },
+  { name: "Lahore", alpha2: "PK", lat: 31.5497, lon: 74.3436 },
+  { name: "Karachi", alpha2: "PK", lat: 24.8607, lon: 67.0011 },
+  { name: "Islamabad", alpha2: "PK", lat: 33.6844, lon: 73.0479 },
+  { name: "Peshawar", alpha2: "PK", lat: 34.0151, lon: 71.5249 },
+  { name: "Quetta", alpha2: "PK", lat: 30.1798, lon: 66.975 },
+];
+
+// WMO weather codes (used by Open-Meteo's "weathercode") mapped to
+// a human-readable condition string.
+const WEATHER_CODE_MAP = {
+  0: "Clear sky",
+  1: "Mainly clear",
+  2: "Partly cloudy",
+  3: "Overcast",
+  45: "Fog",
+  48: "Depositing rime fog",
+  51: "Light drizzle",
+  53: "Moderate drizzle",
+  55: "Dense drizzle",
+  56: "Light freezing drizzle",
+  57: "Dense freezing drizzle",
+  61: "Slight rain",
+  63: "Moderate rain",
+  65: "Heavy rain",
+  66: "Light freezing rain",
+  67: "Heavy freezing rain",
+  71: "Slight snow fall",
+  73: "Moderate snow fall",
+  75: "Heavy snow fall",
+  77: "Snow grains",
+  80: "Slight rain showers",
+  81: "Moderate rain showers",
+  82: "Violent rain showers",
+  85: "Slight snow showers",
+  86: "Heavy snow showers",
+  95: "Thunderstorm",
+  96: "Thunderstorm with slight hail",
+  99: "Thunderstorm with heavy hail",
+};
+
+function describeWeatherCode(code) {
+  return WEATHER_CODE_MAP[code] || "Unknown";
+}
 
 const dashboard = document.getElementById("dashboard");
 const spinner = document.getElementById("spinner");
 const spinnerText = document.getElementById("spinnerText");
 const addCityForm = document.getElementById("addCityForm");
+const quickCityButtons = document.getElementById("quickCityButtons");
 
 /* ---------- Spinner helpers ---------- */
 
@@ -61,7 +108,7 @@ function hideSpinner() {
 /* ---------- API #1: Weather (Open-Meteo) ---------- */
 
 async function fetchWeather(lat, lon) {
-  const url = `${WEATHER_BASE_URL}?latitude=${lat}&longitude=${lon}&current=temperature_2m,wind_speed_10m&hourly=relative_humidity_2m`;
+  const url = `${WEATHER_BASE_URL}?latitude=${lat}&longitude=${lon}&current=temperature_2m,wind_speed_10m,weathercode&hourly=relative_humidity_2m`;
 
   const response = await fetch(url);
 
@@ -83,6 +130,8 @@ async function fetchWeather(lat, lon) {
     temperature: data.current?.temperature_2m,
     windSpeed: data.current?.wind_speed_10m,
     humidity: currentHumidity,
+    weatherCode: data.current?.weathercode,
+    condition: describeWeatherCode(data.current?.weathercode),
   };
 }
 
@@ -102,7 +151,11 @@ async function fetchCountry(alpha2) {
   }
 
   if (response.status === 403) {
-    throw new Error("REST Countries request blocked (plan limit or premium field).");
+    throw new Error(
+      `Blocked by REST Countries (403). This almost always means your API key isn't allowed to be called from this page's origin ("${window.location.hostname}"). ` +
+      `Fix: sign up at restcountries.com, open the API Keys page, and add "${window.location.hostname}" to that key's allowed origins — then paste the real key into COUNTRY_API_KEY in script.js. ` +
+      `(The demo key only works from restcountries.com's own docs page, not from your site.)`
+    );
   }
 
   if (!response.ok) {
@@ -230,6 +283,7 @@ function buildCardHTML(result, index) {
       ${country.isDemoData ? `<p class="hint">⚠️ Showing REST Countries DEMO sample data (not necessarily this country) — add a real API key in script.js for live data.</p>` : ""}
 
       <div class="section-label">Current Weather</div>
+      <p class="condition-text">${weather.condition || "N/A"}</p>
       <div class="weather-row">
         <div class="weather-stat">
           <div class="value">${formatValue(weather.temperature, "°C")}</div>
@@ -329,6 +383,50 @@ addCityForm.addEventListener("submit", async (e) => {
   }
 });
 
+/* ---------- Quick-select city buttons ---------- */
+
+function renderQuickCityButtons() {
+  quickCityButtons.innerHTML = QUICK_CITIES.map(
+    (c) => `<button type="button" class="quick-city-btn" data-name="${c.name}">${c.name}</button>`
+  ).join("");
+
+  quickCityButtons.querySelectorAll(".quick-city-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const chosen = QUICK_CITIES.find((c) => c.name === btn.dataset.name);
+      if (!chosen) return;
+
+      // Mark this button active while its data loads
+      quickCityButtons.querySelectorAll(".quick-city-btn").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+
+      showSpinner(`Fetching data for ${chosen.name}...`);
+      try {
+        const result = await fetchCityData(chosen);
+
+        // Replace an existing card for this city if present, else add it
+        const existingIdx = latestResults.findIndex(
+          (r) => r.city.name === chosen.name && r.city.alpha2 === chosen.alpha2
+        );
+        if (existingIdx !== -1) {
+          latestResults[existingIdx] = result;
+        } else {
+          cities.push(chosen);
+          latestResults.push(result);
+        }
+        renderDashboard(latestResults);
+      } catch (error) {
+        // fetchCityData already catches internally, but guard just in case
+        console.error(error);
+      } finally {
+        hideSpinner();
+      }
+    });
+  });
+}
+
 /* ---------- Init ---------- */
 
-document.addEventListener("DOMContentLoaded", loadAllCities);
+document.addEventListener("DOMContentLoaded", () => {
+  renderQuickCityButtons();
+  loadAllCities();
+});
