@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Global City Dashboard</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <header class="app-header">
+    <h1>🌍 Global City Dashboard</h1>
+    <p class="subtitle">Live weather + country data, combined from two APIs</p>
+  </header>
+
+  <section class="add-city-panel">
+    <h2>Add a city</h2>
+    <form id="addCityForm" class="add-city-form">
+      <input type="text" id="cityName" placeholder="City name (e.g. Lahore)" required />
+      <input type="number" step="any" id="cityLat" placeholder="Latitude (e.g. 31.55)" required />
+      <input type="number" step="any" id="cityLon" placeholder="Longitude (e.g. 74.35)" required />
+      <input type="text" id="cityAlpha2" placeholder="Country code (e.g. PK)" maxlength="2" required />
+      <button type="submit">+ Add City</button>
+    </form>
+    <p class="hint">Country code = ISO 2-letter code (US, CA, GB, DE, JP, PK, FR...)</p>
+  </section>
+
+  <div id="spinner" class="spinner-overlay hidden">
+    <div class="spinner"></div>
+    <p id="spinnerText">Loading city data...</p>
+  </div>
+
+  <main id="dashboard" class="dashboard-grid">
+    <!-- City cards get injected here by script.js -->
+  </main>
+
+  <footer class="app-footer">
+    <p>Weather data: Open-Meteo &nbsp;|&nbsp; Country data: REST Countries</p>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
